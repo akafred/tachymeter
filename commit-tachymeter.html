@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Commit Tachymeter</title>
+
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        label {
+            font-weight: normal;
+        }
+
+        input {
+            margin-bottom: 20px;
+            font-size: 1.2em;
+        }
+
+        #visualization {
+            position: relative;
+        }
+
+        #donutChart {
+            transform: rotate(0deg);
+        }
+
+        #taskCount {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Commit Tachymeter</h1>
+    <label for="totalTimeframe">Workday (hh:mm)</label>
+    <input type="time" id="totalTimeframe" step="60" value="06:00">
+    <label for="taskTime">Time between commits (hh:mm:ss)</label>
+    <input type="time" id="taskTime" step="1" value="00:30:00">
+    <div id="visualization">
+        <svg id="donutChart" width="200" height="200" viewBox="0 0 200 200">
+            <circle cx="100" cy="100" r="80" fill="none" stroke="#eee" stroke-width="40"></circle> <!-- Background circle -->
+            <path id="donutSector" fill="none" stroke="#007bff" stroke-width="40" stroke-dasharray="0 565.48" stroke-dashoffset="0" d=""></path> <!-- Dynamic sector -->
+            // Add "tasks"-label in svg for task count
+            <text id="taskCount" x="100" y="90" font-size="20" text-anchor="middle"></text> <!-- task count text -->
+            <text x="100" y="110" font-size="20" text-anchor="middle">commits</text>
+        </svg>
+    </div>
+
+
+
+    <script>
+        document.getElementById('totalTimeframe').addEventListener('change', updateChart);
+        document.getElementById('taskTime').addEventListener('change', updateChart);
+
+
+        function updateChart() {
+            const totalTimeInSeconds = convertTimeToSeconds(document.getElementById('totalTimeframe').value);
+            const taskTimeInSeconds = convertTimeToSeconds(document.getElementById('taskTime').value);
+
+            if(taskTimeInSeconds === 0) {
+                document.getElementById('taskTime').setCustomValidity('task time cannot be 0');
+                return;
+            }
+            updateDonutChart(totalTimeInSeconds / taskTimeInSeconds);
+
+        }
+
+        function convertTimeToSeconds(timeString) {
+            // Implementation to convert hh:mm or hh:mm:ss to seconds
+            const timeComponents = timeString.split(':');
+            return timeComponents.length === 2
+                ? (parseInt(timeComponents[0]) * 3600) + parseInt(timeComponents[1]) * 60
+                : (parseInt(timeComponents[0]) * 3600) + (parseInt(timeComponents[1]) * 60) + parseInt(timeComponents[2]);
+
+        }
+
+
+        function updateDonutChart(tasks) {
+            const visualization = document.getElementById('visualization');
+            const oldSectors = visualization.querySelectorAll('path.task-sector');
+            oldSectors.forEach(sector => sector.remove());  // Remove previous sectors
+
+            const fulltasks = Math.floor(tasks);
+            const sectorAngle = 360 / tasks;  // Angle covered by each task
+
+            for (let i = 0; i < fulltasks; i++) {
+                // Slightly reduce the angle to create gaps between sectors
+                const startAngle = i * sectorAngle;
+                const endAngle = startAngle + sectorAngle - Math.min(1, sectorAngle/2);  // A gap of min(1deg, half a sector) is created between each sector
+
+                // Create a new path element for each sector
+                const sectorPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                sectorPath.setAttribute('fill', 'none');
+                sectorPath.setAttribute('stroke', '#007bff');
+                sectorPath.setAttribute('stroke-width', '40');
+                sectorPath.setAttribute('class', 'task-sector');  // Add class for easy removal later
+                sectorPath.setAttribute('d', describeArc(100, 100, 80, startAngle, endAngle));
+
+                document.getElementById('donutChart').appendChild(sectorPath);
+            }
+
+            // Update the task count text
+            const taskCount = document.getElementById('taskCount');
+            taskCount.textContent = fulltasks.toString();
+        }
+
+        function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+            const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
+            return {
+                x: centerX + radius * Math.cos(angleInRadians),
+                y: centerY + radius * Math.sin(angleInRadians)
+            };
+        }
+
+        function describeArc(x, y, radius, startAngle, endAngle) {
+            const start = polarToCartesian(x, y, radius, endAngle);
+            const end = polarToCartesian(x, y, radius, startAngle);
+            const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1';
+            return [
+                'M', start.x, start.y,
+                'A', radius, radius, 0, largeArcFlag, 0, end.x, end.y
+            ].join(' ');
+        }
+
+        updateChart();
+    </script>
+</body>
+</html>
